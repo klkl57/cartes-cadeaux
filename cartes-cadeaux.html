@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MesCadeaux</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+<style>
+  :root {
+    --bg:#0f0e0e;--surface:#1a1918;--surface2:#252320;
+    --accent:#f0c93a;--accent2:#e8855a;--text:#f2ede8;
+    --text-muted:#7a756e;--border:#2e2c29;--danger:#e85a5a;--success:#5ae8a0;--radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;}
+  header{padding:24px 20px 16px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10;}
+  .logo{font-size:22px;font-weight:800;letter-spacing:-0.5px;}
+  .logo span{color:var(--accent);}
+  .total-badge{font-family:'DM Mono',monospace;font-size:13px;color:var(--text-muted);text-align:right;}
+  .total-badge strong{display:block;font-size:20px;color:var(--accent);font-weight:500;}
+  main{padding:16px 20px 120px;display:flex;flex-direction:column;gap:12px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;animation:slideIn 0.3s ease both;}
+  @keyframes slideIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+  .card.c0::before{background:var(--accent);}.card.c1::before{background:var(--accent2);}
+  .card.c2::before{background:#5ab4e8;}.card.c3::before{background:#a05ae8;}.card.c4::before{background:var(--success);}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+  .card-name{font-size:17px;font-weight:700;letter-spacing:-0.3px;}
+  .card-delete{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:2px 4px;border-radius:6px;line-height:1;}
+  .solde-row{display:flex;align-items:baseline;gap:8px;margin-bottom:12px;}
+  .solde-value{font-family:'DM Mono',monospace;font-size:32px;font-weight:500;letter-spacing:-1px;}
+  .solde-value.low{color:var(--danger);}.solde-value.medium{color:var(--accent2);}.solde-value.good{color:var(--success);}
+  .solde-label{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;}
+  .progress-bar{height:4px;background:var(--border);border-radius:99px;margin-bottom:12px;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:99px;transition:width 0.4s ease;}
+  .card-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .expiry{font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);}
+  .expiry.soon{color:var(--danger);}
+  .btn-row{display:flex;gap:6px;}
+  .action-btn{font-family:'Syne',sans-serif;font-size:12px;font-weight:600;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;}
+  .action-btn.primary{background:var(--accent);color:#0f0e0e;border-color:var(--accent);}
+  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:60px 20px;text-align:center;color:var(--text-muted);}
+  .empty-icon{font-size:48px;}.empty h2{font-size:18px;color:var(--text);font-weight:700;}.empty p{font-size:14px;line-height:1.5;max-width:240px;}
+  .fab{position:fixed;bottom:28px;right:20px;left:20px;background:var(--accent);color:#0f0e0e;border:none;border-radius:14px;padding:17px;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 8px 24px rgba(240,201,58,0.25);z-index:20;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;align-items:flex-end;backdrop-filter:blur(4px);}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;animation:slideUp 0.25s ease;max-height:90dvh;overflow-y:auto;}
+  @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+  .modal-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 20px;}
+  .modal h2{font-size:20px;font-weight:800;margin-bottom:20px;letter-spacing:-0.5px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;}
+  .field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:13px 14px;font-family:'DM Mono',monospace;font-size:16px;color:var(--text);outline:none;transition:border-color 0.15s;}
+  .field input:focus{border-color:var(--accent);}
+  .scan-zone{background:var(--surface2);border:1.5px dashed var(--border);border-radius:12px;padding:24px 20px;text-align:center;margin-bottom:16px;cursor:pointer;position:relative;}
+  .scan-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .scan-zone .scan-icon{font-size:32px;margin-bottom:6px;}
+  .scan-zone p{font-size:13px;color:var(--text-muted);}
+  .scan-zone strong{color:var(--text);}
+  .ai-status{background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:var(--text-muted);display:none;align-items:center;gap:8px;}
+  .ai-status.show{display:flex;}.ai-status.ok{color:var(--success);}.ai-status.err{color:var(--danger);}
+  .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .modal-actions{display:flex;gap:10px;margin-top:4px;}
+  .btn-cancel{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:12px;padding:14px;font-family:'Syne',sans-serif;font-size:15px;font-weight:600;cursor:pointer;}
+  .btn-save{flex:2;background:var(--accent);border:none;color:#0f0e0e;border-radius:12px;padding:14px;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;}
+  #preview-img{max-width:100%;max-height:90px;border-radius:8px;margin-top:8px;display:none;object-fit:contain;}
+  /* BARCODE MODAL */
+  .bc-header{text-align:center;margin-bottom:16px;}
+  .bc-enseigne{font-size:22px;font-weight:800;margin-bottom:4px;}
+  .bc-solde{font-family:'DM Mono',monospace;font-size:36px;color:var(--accent);}
+  #barcode-svg{width:100%;max-width:340px;height:auto;background:white;border-radius:10px;padding:12px;display:block;margin:0 auto 8px;}
+  .bc-code{font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:20px;word-break:break-all;}
+  .bc-hint{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:20px;line-height:1.6;background:var(--surface2);border-radius:10px;padding:12px;}
+  /* TOAST */
+  #toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;z-index:999;transition:opacity 0.3s;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;}
+  #toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Mes<span>Cadeaux</span></div>
+  <div class="total-badge">Total restant<strong id="total-display">0,00 €</strong></div>
+</header>
+
+<main id="cards-container">
+  <div class="empty" id="empty-state">
+    <div class="empty-icon">🎁</div>
+    <h2>Aucune carte</h2>
+    <p>Ajoute ta première carte en scannant ton e-billet.</p>
+  </div>
+</main>
+
+<button class="fab" onclick="openAddModal()">＋ Ajouter une carte</button>
+<div id="toast"></div>
+
+<!-- MODAL AJOUT -->
+<div class="modal-overlay" id="add-overlay" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>📄 Nouvelle carte cadeau</h2>
+
+    <div class="scan-zone">
+      <input type="file" accept="image/*,application/pdf" id="add-file-input" onchange="handleAddScan(event)">
+      <div class="scan-icon">📷</div>
+      <p><strong>Scanner le e-billet</strong></p>
+      <p>Photo ou PDF — l'IA extrait les infos</p>
+      <img id="preview-img" alt="">
+    </div>
+
+    <div class="ai-status" id="add-status">
+      <div class="spinner" id="add-spin"></div>
+      <span id="add-msg"></span>
+    </div>
+
+    <div class="field"><label>Enseigne</label><input type="text" id="add-name" placeholder="ex: Magasins U, Fnac…"></div>
+    <div class="field"><label>Solde initial (€)</label><input type="number" id="add-solde" placeholder="100.00" step="0.01" min="0"></div>
+    <div class="field"><label>Date d'expiration</label><input type="date" id="add-expiry"></div>
+    <div class="field"><label>Code barre / numéro</label><input type="text" id="add-barcode" placeholder="ex: 6363357047813198120"></div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Annuler</button>
+      <button class="btn-save" onclick="saveNewCard()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PAIEMENT (code barre) -->
+<div class="modal-overlay" id="pay-overlay" onclick="if(event.target===this)closePayModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="bc-header">
+      <div class="bc-enseigne" id="bc-name">—</div>
+      <div class="bc-solde" id="bc-solde">—</div>
+    </div>
+    <svg id="barcode-svg"></svg>
+    <div class="bc-code" id="bc-code"></div>
+    <div class="bc-hint">📱 Présente cet écran à la caissière<br>Ensuite scanne ton reçu pour mettre à jour le solde</div>
+
+    <div class="scan-zone" style="margin-bottom:12px;">
+      <input type="file" accept="image/*" capture="environment" id="receipt-input" onchange="handleReceiptScan(event)">
+      <div class="scan-icon">🧾</div>
+      <p><strong>Scanner le reçu après paiement</strong></p>
+    </div>
+
+    <div class="ai-status" id="receipt-status">
+      <div class="spinner"></div>
+      <span id="receipt-msg"></span>
+    </div>
+
+    <button class="btn-cancel" style="width:100%;margin-top:4px;" onclick="closePayModal()">Fermer</button>
+  </div>
+</div>
+
+<script>
+  const COLORS = ['c0','c1','c2','c3','c4'];
+  let cards = JSON.parse(localStorage.getItem('mescadeaux_v2') || '[]');
+  let activeCardId = null;
+  let toastTimer;
+
+  function save() { localStorage.setItem('mescadeaux_v2', JSON.stringify(cards)); }
+  function fmt(v) { return parseFloat(v).toFixed(2).replace('.',',') + ' €'; }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function renderAll() {
+    const cont = document.getElementById('cards-container');
+    cont.querySelectorAll('.card').forEach(e => e.remove());
+    const valid = cards.filter(c => c.solde > 0);
+    document.getElementById('empty-state').style.display = valid.length ? 'none' : 'flex';
+    let total = 0;
+    valid.forEach((c,i) => { total += c.solde; cont.appendChild(makeCard(c,i)); });
+    document.getElementById('total-display').textContent = fmt(total);
+  }
+
+  function makeCard(c, i) {
+    const div = document.createElement('div');
+    div.className = 'card ' + COLORS[i % 5];
+    const pct = Math.min(100, (c.solde / c.initial) * 100);
+    const sc = c.solde < 10 ? 'low' : c.solde < 30 ? 'medium' : 'good';
+    const fc = c.solde < 10 ? 'var(--danger)' : c.solde < 30 ? 'var(--accent2)' : 'var(--success)';
+    let exp = '<span class="expiry">Sans expiration</span>';
+    if (c.expiry) {
+      const diff = Math.ceil((new Date(c.expiry) - new Date()) / 86400000);
+      const lbl = diff < 0 ? '⚠️ Expirée' : diff === 0 ? '⚠️ Expire aujourd\'hui' : `Expire dans ${diff}j`;
+      exp = `<span class="expiry${diff <= 14 ? ' soon' : ''}">${lbl}</span>`;
+    }
+    const hasBc = c.barcode && c.barcode.trim();
+    div.innerHTML = `
+      <div class="card-top">
+        <div class="card-name">${esc(c.name)}</div>
+        <button class="card-delete" onclick="deleteCard('${c.id}')">✕</button>
+      </div>
+      <div class="solde-row">
+        <div class="solde-value ${sc}">${fmt(c.solde)}</div>
+        <div class="solde-label">restant</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${fc}"></div></div>
+      <div class="card-footer">
+        ${exp}
+        <div class="btn-row">
+          ${hasBc ? `<button class="action-btn primary" onclick="openPayModal('${c.id}')">💳 Payer</button>` : ''}
+          <button class="action-btn" onclick="quickScanReceipt('${c.id}')">🧾 Reçu</button>
+        </div>
+      </div>`;
+    return div;
+  }
+
+  // ADD MODAL
+  function openAddModal() {
+    ['add-name','add-solde','add-barcode'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('add-expiry').value = '';
+    document.getElementById('preview-img').style.display = 'none';
+    document.getElementById('add-file-input').value = '';
+    setStatus('add', 'hide');
+    document.getElementById('add-overlay').classList.add('open');
+  }
+  function closeAddModal() { document.getElementById('add-overlay').classList.remove('open'); }
+
+  async function handleAddScan(e) {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.type.startsWith('image/')) {
+      const r = new FileReader();
+      r.onload = ev => { const img = document.getElementById('preview-img'); img.src = ev.target.result; img.style.display = 'block'; };
+      r.readAsDataURL(file);
+    }
+    setStatus('add', 'loading', 'Analyse du document…');
+    try {
+      const b64 = await toBase64(file);
+      const res = await aiAnalyzeCard(b64, file.type);
+      if (res.enseigne) document.getElementById('add-name').value = res.enseigne;
+      if (res.solde != null) document.getElementById('add-solde').value = res.solde;
+      if (res.expiry) document.getElementById('add-expiry').value = res.expiry;
+      if (res.barcode) document.getElementById('add-barcode').value = res.barcode;
+      const n = [res.enseigne, res.solde, res.expiry, res.barcode].filter(x => x != null).length;
+      setStatus('add', 'ok', `✓ ${n} info(s) extraite(s) — vérifie et enregistre`);
+    } catch { setStatus('add', 'err', 'Erreur — remplis manuellement.'); }
+  }
+
+  function saveNewCard() {
+    const name = document.getElementById('add-name').value.trim();
+    const solde = parseFloat(document.getElementById('add-solde').value);
+    const expiry = document.getElementById('add-expiry').value;
+    const barcode = document.getElementById('add-barcode').value.trim();
+    if (!name || isNaN(solde) || solde <= 0) { alert('Enseigne et solde requis.'); return; }
+    cards.push({ id: Date.now().toString(), name, solde, initial: solde, expiry, barcode });
+    save(); renderAll(); closeAddModal(); toast('Carte ajoutée ✓', 'ok');
+  }
+
+  function deleteCard(id) {
+    if (!confirm('Supprimer ?')) return;
+    cards = cards.filter(c => c.id !== id);
+    save(); renderAll();
+  }
+
+  // PAY MODAL
+  function openPayModal(id) {
+    const c = cards.find(x => x.id === id); if (!c) return;
+    activeCardId = id;
+    document.getElementById('bc-name').textContent = c.name;
+    document.getElementById('bc-solde').textContent = fmt(c.solde);
+    document.getElementById('bc-code').textContent = c.barcode || '';
+    document.getElementById('receipt-input').value = '';
+    setStatus('receipt', 'hide');
+    const svg = document.getElementById('barcode-svg');
+    if (c.barcode) {
+      try { JsBarcode(svg, c.barcode, { format: 'CODE128', width: 2.2, height: 90, displayValue: false, margin: 10 }); }
+      catch { svg.innerHTML = `<text x="8" y="30" fill="#7a756e" font-size="11">${esc(c.barcode)}</text>`; }
+    } else { svg.innerHTML = ''; }
+    document.getElementById('pay-overlay').classList.add('open');
+  }
+  function closePayModal() { document.getElementById('pay-overlay').classList.remove('open'); activeCardId = null; }
+
+  // QUICK SCAN depuis fiche (sans ouvrir la modale paiement)
+  function quickScanReceipt(id) {
+    activeCardId = id;
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment'; inp.style.display = 'none';
+    inp.onchange = handleReceiptScan;
+    document.body.appendChild(inp); inp.click();
+    inp.addEventListener('change', () => setTimeout(() => inp.remove(), 2000));
+  }
+
+  async function handleReceiptScan(e) {
+    const file = e.target.files[0]; if (!file || !activeCardId) return;
+    const c = cards.find(x => x.id === activeCardId); if (!c) return;
+    setStatus('receipt', 'loading', 'Analyse du reçu…');
+    toast('Analyse du reçu…', 'loading');
+    try {
+      const b64 = await toBase64(file);
+      const res = await aiAnalyzeReceipt(b64, file.type);
+      if (res.solde != null) {
+        c.solde = res.solde;
+        if (res.expiry) c.expiry = res.expiry;
+        save(); renderAll();
+        document.getElementById('bc-solde').textContent = fmt(c.solde);
+        setStatus('receipt', 'ok', `✓ Nouveau solde : ${fmt(c.solde)}`);
+        toast(`Solde mis à jour : ${fmt(c.solde)}`, 'ok');
+        if (c.solde === 0 && confirm('Carte vide ! La supprimer ?')) {
+          cards = cards.filter(x => x.id !== activeCardId);
+          save(); renderAll(); closePayModal();
+        }
+      } else {
+        setStatus('receipt', 'err', 'Solde non détecté — réessaie.');
+        toast('Solde non détecté', 'err');
+      }
+    } catch { setStatus('receipt', 'err', 'Erreur — réessaie.'); }
+    if (e.target) e.target.value = '';
+  }
+
+  // AI
+  async function aiAnalyzeCard(b64, mime) {
+    const isPdf = mime === 'application/pdf';
+    const block = isPdf
+      ? { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } }
+      : { type:'image', source:{ type:'base64', media_type:mime, data:b64 } };
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:400, messages:[{ role:'user', content:[
+        block,
+        { type:'text', text:`Analyse cette carte cadeau ou e-billet. Extrais :
+1. enseigne : nom du magasin (ex "Magasins U")
+2. solde : montant en euros (nombre, ex 100.0)
+3. expiry : date expiration YYYY-MM-DD (convertis "26/02/2026" → "2026-02-26")
+4. barcode : le code numérique sous le code barre (ex "6363357047813198120")
+
+JSON uniquement, sans markdown :
+{"enseigne":null,"solde":null,"expiry":null,"barcode":null}` }
+      ]}]})
+    });
+    const d = await r.json();
+    const t = d.content?.find(b => b.type==='text')?.text || '';
+    try { return JSON.parse(t.replace(/```json|```/g,'').trim()); }
+    catch { return { enseigne:null, solde:null, expiry:null, barcode:null }; }
+  }
+
+  async function aiAnalyzeReceipt(b64, mime) {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:200, messages:[{ role:'user', content:[
+        { type:'image', source:{ type:'base64', media_type:mime, data:b64 } },
+        { type:'text', text:`Analyse ce reçu. Trouve le SOLDE RESTANT sur la carte cadeau après débit.
+Cherche : "solde restant", "nouveau solde", "reste", "balance remaining".
+JSON uniquement : {"solde":<nombre ou null>,"expiry":"<YYYY-MM-DD ou null>"}` }
+      ]}]})
+    });
+    const d = await r.json();
+    const t = d.content?.find(b => b.type==='text')?.text || '';
+    try { return JSON.parse(t.replace(/```json|```/g,'').trim()); }
+    catch { return { solde:null, expiry:null }; }
+  }
+
+  // HELPERS
+  function toBase64(file) {
+    return new Promise((res,rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej; r.readAsDataURL(file);
+    });
+  }
+
+  function setStatus(prefix, type, msg) {
+    const el = document.getElementById(prefix+'-status');
+    const msgEl = document.getElementById(prefix+'-msg');
+    const spin = el.querySelector('.spinner');
+    if (type === 'hide') { el.className = 'ai-status'; return; }
+    el.className = 'ai-status show' + (type !== 'loading' ? ' '+type : '');
+    if (msgEl) msgEl.textContent = msg || '';
+    if (spin) spin.style.display = type === 'loading' ? 'block' : 'none';
+  }
+
+  function toast(msg, type) {
+    const t = document.getElementById('toast');
+    const spin = type === 'loading' ? '<div class="spinner" style="flex-shrink:0"></div>' : '';
+    const col = type === 'ok' ? 'var(--success)' : type === 'err' ? 'var(--danger)' : 'var(--text)';
+    t.innerHTML = spin + `<span style="color:${col}">${msg}</span>`;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    if (type !== 'loading') toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  renderAll();
+</script>
+</body>
+</html>
