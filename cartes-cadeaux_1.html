@@ -74,7 +74,7 @@
   .bc-code{font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:20px;word-break:break-all;}
   .bc-hint{font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:20px;line-height:1.6;background:var(--surface2);border-radius:10px;padding:12px;}
   /* TOAST */
-  #toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;z-index:999;transition:opacity 0.3s;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;}
+  #toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;z-index:999;transition:opacity 0.3s;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;max-width:90vw;white-space:normal;text-align:center;}
   #toast.show{opacity:1;}
 </style>
 </head>
@@ -240,8 +240,10 @@
       if (res.expiry) document.getElementById('add-expiry').value = res.expiry;
       if (res.barcode) document.getElementById('add-barcode').value = res.barcode;
       const n = [res.enseigne, res.solde, res.expiry, res.barcode].filter(x => x != null).length;
-      setStatus('add', 'ok', `✓ ${n} info(s) extraite(s) — vérifie et enregistre`);
-    } catch { setStatus('add', 'err', 'Erreur — remplis manuellement.'); }
+      setStatus('add', n > 0 ? 'ok' : 'err', n > 0 ? `✓ ${n} info(s) extraite(s) — vérifie et enregistre` : 'Aucune info extraite — remplis manuellement');
+    } catch(err) {
+      setStatus('add', 'err', '⚠️ ' + (err.message || 'Erreur inconnue'));
+    }
   }
 
   function saveNewCard() {
@@ -317,48 +319,80 @@
         setStatus('receipt', 'err', 'Solde non détecté — réessaie.');
         toast('Solde non détecté', 'err');
       }
-    } catch { setStatus('receipt', 'err', 'Erreur — réessaie.'); }
+    } catch(err) {
+      setStatus('receipt', 'err', '⚠️ ' + (err.message || 'Erreur inconnue'));
+      toast('Erreur analyse reçu', 'err');
+    }
     if (e.target) e.target.value = '';
   }
 
-  // AI
+  // AI — CORRECTION PRINCIPALE :
+  // 1. Header 'anthropic-beta':'pdfs-2024-09-25' ajouté (requis pour lire les PDF)
+  // 2. Modèle mis à jour vers claude-sonnet-4-6
+  // 3. Les erreurs API sont maintenant levées (throw) pour être visibles dans l'UI
   async function aiAnalyzeCard(b64, mime) {
     const isPdf = mime === 'application/pdf';
     const block = isPdf
       ? { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } }
       : { type:'image', source:{ type:'base64', media_type:mime, data:b64 } };
     const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json','x-api-key':getApiKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:400, messages:[{ role:'user', content:[
-        block,
-        { type:'text', text:`Analyse cette carte cadeau ou e-billet. Extrais :
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':getApiKey(),
+        'anthropic-version':'2023-06-01',
+        'anthropic-beta':'pdfs-2024-09-25',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:400,
+        messages:[{ role:'user', content:[
+          block,
+          { type:'text', text:`Analyse cette carte cadeau ou e-billet. Extrais :
 1. enseigne : nom du magasin (ex "Magasins U")
 2. solde : montant en euros (nombre, ex 100.0)
 3. expiry : date expiration YYYY-MM-DD (convertis "26/02/2026" → "2026-02-26")
 4. barcode : le code numérique sous le code barre (ex "6363357047813198120")
 
-JSON uniquement, sans markdown :
-{"enseigne":null,"solde":null,"expiry":null,"barcode":null}` }
-      ]}]})
+Réponds UNIQUEMENT avec ce JSON, sans texte autour :
+{"enseigne":"...","solde":...,"expiry":"...","barcode":"..."}` }
+        ]}]
+      })
     });
     const d = await r.json();
+    if (!r.ok) throw new Error(d.error?.message || `Erreur API ${r.status}`);
     const t = d.content?.find(b => b.type==='text')?.text || '';
+    if (!t) throw new Error('Réponse vide — vérifie ta clé API');
     try { return JSON.parse(t.replace(/```json|```/g,'').trim()); }
     catch { return { enseigne:null, solde:null, expiry:null, barcode:null }; }
   }
 
   async function aiAnalyzeReceipt(b64, mime) {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json','x-api-key':getApiKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:200, messages:[{ role:'user', content:[
-        { type:'image', source:{ type:'base64', media_type:mime, data:b64 } },
-        { type:'text', text:`Analyse ce reçu. Trouve le SOLDE RESTANT sur la carte cadeau après débit.
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':getApiKey(),
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:200,
+        messages:[{ role:'user', content:[
+          { type:'image', source:{ type:'base64', media_type:mime, data:b64 } },
+          { type:'text', text:`Analyse ce reçu. Trouve le SOLDE RESTANT sur la carte cadeau après débit.
 Cherche : "solde restant", "nouveau solde", "reste", "balance remaining".
-JSON uniquement : {"solde":<nombre ou null>,"expiry":"<YYYY-MM-DD ou null>"}` }
-      ]}]})
+Réponds UNIQUEMENT avec ce JSON :
+{"solde":<nombre ou null>,"expiry":"<YYYY-MM-DD ou null>"}` }
+        ]}]
+      })
     });
     const d = await r.json();
+    if (!r.ok) throw new Error(d.error?.message || `Erreur API ${r.status}`);
     const t = d.content?.find(b => b.type==='text')?.text || '';
+    if (!t) throw new Error('Réponse vide — vérifie ta clé API');
     try { return JSON.parse(t.replace(/```json|```/g,'').trim()); }
     catch { return { solde:null, expiry:null }; }
   }
@@ -392,7 +426,6 @@ JSON uniquement : {"solde":<nombre ou null>,"expiry":"<YYYY-MM-DD ou null>"}` }
     if (type !== 'loading') toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-
   // API KEY MANAGEMENT
   let _apiKey = null;
 
@@ -405,17 +438,6 @@ JSON uniquement : {"solde":<nombre ou null>,"expiry":"<YYYY-MM-DD ou null>"}` }
     document.getElementById('apikey-input').value = '';
     document.getElementById('apikey-overlay').classList.remove('open');
   }
-
-  function requireApiKey(callback) {
-    if (_apiKey) { callback(); return; }
-    document.getElementById('apikey-overlay').classList.add('open');
-    document.getElementById('apikey-input').focus();
-    // Store callback to run after key entry
-    window._pendingCallback = callback;
-  }
-
-  // Override saveApiKey to also run pending callback
-  const _origSave = null;
 
   renderAll();
 </script>
