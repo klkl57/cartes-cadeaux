@@ -427,7 +427,7 @@ Réponds UNIQUEMENT avec ce JSON :
   }
 
   // API KEY MANAGEMENT
-  let _apiKey = null;
+  let _apiKey = localStorage.getItem('mescadeaux_apikey') || null;
 
   function getApiKey() { return _apiKey; }
 
@@ -435,8 +435,15 @@ Réponds UNIQUEMENT avec ce JSON :
     const val = document.getElementById('apikey-input').value.trim();
     if (!val.startsWith('sk-ant-')) { alert('Clé invalide. Elle doit commencer par sk-ant-'); return; }
     _apiKey = val;
+    localStorage.setItem('mescadeaux_apikey', val);
     document.getElementById('apikey-input').value = '';
     document.getElementById('apikey-overlay').classList.remove('open');
+  }
+
+  function forgetApiKey() {
+    _apiKey = null;
+    localStorage.removeItem('mescadeaux_apikey');
+    toast('Clé API effacée', 'ok');
   }
 
   renderAll();
