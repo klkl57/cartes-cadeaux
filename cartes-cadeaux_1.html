@@ -190,7 +190,10 @@
     div.innerHTML = `
       <div class="card-top">
         <div class="card-name">${esc(c.name)}</div>
-        <button class="card-delete" onclick="deleteCard('${c.id}')">✕</button>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button class="card-delete" onclick="openEditModal('${c.id}')">✏️</button>
+          <button class="card-delete" onclick="deleteCard('${c.id}')">✕</button>
+        </div>
       </div>
       <div class="solde-row">
         <div class="solde-value ${sc}">${fmt(c.solde)}</div>
@@ -254,6 +257,24 @@
     if (!name || isNaN(solde) || solde <= 0) { alert('Enseigne et solde requis.'); return; }
     cards.push({ id: Date.now().toString(), name, solde, initial: solde, expiry, barcode });
     save(); renderAll(); closeAddModal(); toast('Carte ajoutée ✓', 'ok');
+  }
+
+  // EDIT MODAL
+  function openEditModal(id) {
+    const c = cards.find(x => x.id === id); if (!c) return;
+    activeCardId = id;
+    document.getElementById('edit-solde').value = c.solde;
+    document.getElementById('edit-expiry').value = c.expiry || '';
+    document.getElementById('edit-overlay').classList.add('open');
+  }
+  function closeEditModal() { document.getElementById('edit-overlay').classList.remove('open'); activeCardId = null; }
+  function saveEdit() {
+    const c = cards.find(x => x.id === activeCardId); if (!c) return;
+    const solde = parseFloat(document.getElementById('edit-solde').value);
+    if (isNaN(solde) || solde < 0) { alert('Solde invalide.'); return; }
+    c.solde = solde;
+    c.expiry = document.getElementById('edit-expiry').value || c.expiry;
+    save(); renderAll(); closeEditModal(); toast('Carte mise à jour ✓', 'ok');
   }
 
   function deleteCard(id) {
@@ -448,6 +469,20 @@ Réponds UNIQUEMENT avec ce JSON :
 
   renderAll();
 </script>
+
+<!-- MODAL ÉDITION CARTE -->
+<div class="modal-overlay" id="edit-overlay" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>✏️ Modifier la carte</h2>
+    <div class="field"><label>Solde restant (€)</label><input type="number" id="edit-solde" step="0.01" min="0"></div>
+    <div class="field"><label>Date d'expiration</label><input type="date" id="edit-expiry"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditModal()">Annuler</button>
+      <button class="btn-save" onclick="saveEdit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL CLÉ API -->
 <div class="modal-overlay" id="apikey-overlay" style="z-index:200;">
